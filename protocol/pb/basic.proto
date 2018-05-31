@@ -1,0 +1,10 @@
+// 基本數據
+syntax = "proto3";
+package pb;
+
+message Register{
+    // 請求服務 編號
+    uint32 ID = 1;
+    // 連接密碼
+    string Password = 2;
+}
