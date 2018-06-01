@@ -8,6 +8,7 @@ import (
 	"github.com/zuiwuchang/king-go/command"
 	"github.com/zuiwuchang/king-go/net/easy"
 	"net"
+	"time"
 )
 
 // Service .
@@ -21,7 +22,7 @@ type Service struct {
 func (s *Service) Run() {
 	go s.runListen(s.listen)
 	for _, forward := range s.keysForward {
-		go s.runListenForward(forward.Listener)
+		go s.runListenForward(forward.ID, forward.Listener)
 	}
 	commander := command.New()
 	command.RegisterCommander(commander, s, "Done")
@@ -34,7 +35,6 @@ func (s *Service) Run() {
 		e = signal.Run()
 		if e == nil {
 			// 已經 關閉 退出
-			signal.RunNull()
 			break
 		}
 	}
@@ -59,10 +59,11 @@ func (s *Service) runListen(l easy.IListener) {
 }
 
 // 運行 轉發 服務
-func (s *Service) runListenForward(l easy.IListener) {
+func (s *Service) runListenForward(id uint32, l easy.IListener) {
 	var e error
+	var c net.Conn
 	for {
-		_, e = l.Accept()
+		c, e = l.Accept()
 		if e != nil {
 			if log.Warn != nil {
 				log.Warn.Println(e)
@@ -70,16 +71,24 @@ func (s *Service) runListenForward(l easy.IListener) {
 			if l.Closed() {
 				break
 			}
+			continue
+		}
+		if e = s.signal.Done(CommandConnect{
+			ID:   id,
+			Conn: c,
+		}); e != nil && log.Fault != nil {
+			log.Fault.Println(e)
 		}
 	}
 }
 
 func (s *Service) newSessionClient(c net.Conn) {
+	srv := configure.GetServer().Server
 	analyze := &Analyze{}
-	client := easy.NewClient(c, easy.DefaultRecvBuffer, analyze)
+	client := easy.NewClient(c, srv.RecvBuffer, analyze)
 
 	// 讀取 初始消息
-	timeout := configure.GetServer().Server.Timeout
+	timeout := srv.InitTimeout
 	b, e := client.ReadTimeout(timeout, nil)
 	if e != nil {
 		if log.Warn != nil {
@@ -116,4 +125,22 @@ func (s *Service) newSessionClient(c net.Conn) {
 		}
 	}
 	client.Close()
+}
+
+func (s *Service) replyError(c easy.IClient, reply *pb.RegisterReply) {
+	msg, e := protocol.NewMessage(protocol.RegisterReply, reply)
+	if e != nil {
+		if log.Fault != nil {
+			log.Fault.Println(e)
+		}
+
+		c.Close()
+		return
+	}
+
+	_, e = c.WriteTimeout(msg, time.Second*10)
+	c.Close()
+	if e == easy.ErrorWriteTimeout {
+		c.WaitWrite()
+	}
 }

@@ -19,8 +19,16 @@ const (
 
 	// Register 向服務器 註冊映射
 	Register = iota + CommandBegin
-	// RegisterOK 註冊映射成功
-	RegisterOK
+	// RegisterReply 註冊映射成功
+	RegisterReply
+
+	// Connect 服務器 向 客戶端 反向 請求建立一個 隧道
+	Connect
+	// ConnectReply 客戶端 回覆 隧道 建立情況
+	ConnectReply
+
+	// Forward 轉發 數據
+	Forward
 
 	// CommandEnd .
 	CommandEnd
@@ -67,6 +75,28 @@ func (b Message) Len() int {
 
 // Body 返回 解碼後的 body 到 pb 中
 func (b Message) Body(pb proto.Message) (e error) {
-	proto.Unmarshal(b, pb)
+	proto.Unmarshal(b[HeaderSize:], pb)
+	return
+}
+
+// NewMessage .
+func NewMessage(commnad uint16, pb proto.Message) (msg Message, e error) {
+	// body
+	var body []byte
+	if pb != nil {
+		body, e = proto.Marshal(pb)
+		if e != nil {
+			return
+		}
+	}
+	msg = make([]byte, HeaderSize+len(body))
+	if body != nil {
+		copy(msg[HeaderSize:], body)
+	}
+
+	// header
+	ByteOrder.PutUint16(msg, HeaderFlag)
+	ByteOrder.PutUint16(msg[2:], commnad)
+	ByteOrder.PutUint16(msg[4:], uint16(len(msg)))
 	return
 }

@@ -1,13 +1,21 @@
-local Second = 1000;
+local Second = 1;
 local Minute = Second * 60;
-local Hour = Minute * 60;
+local MinInitTimeout = Second;
+local DefaultInitTimeout = Minute;
+local MinBuffer = 1024;
+local DefaultBuffer = MinBuffer * 16;
 {
     // 服務器 配置
     Server:{
         // listen 地址
         Addr:":9090",
-        // 超時斷線 為0 永不超時
-        Timeout:Hour,
+        // 初始化超時時間
+        InitTimeout:DefaultInitTimeout,
+
+        // 每次 recv 緩存 最大尺寸
+        RecvBuffer:DefaultBuffer,
+        // 每次 send 數據 最大尺寸
+        SendBuffer:DefaultBuffer,
     },
     // 配置 轉發
     Forward:[
@@ -17,7 +25,7 @@ local Hour = Minute * 60;
             // 公網 地址
             Public:":10000",
             Key:"加密密鑰",
-            Password:"連接密碼",
+            Password:"連接密碼 如果為空 不驗證",
         },
     ],
     // 日誌 配置

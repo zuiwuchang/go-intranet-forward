@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/spf13/cobra"
+	"github.com/zuiwuchang/go-intranet-forward/client"
 	"github.com/zuiwuchang/go-intranet-forward/configure"
 	"github.com/zuiwuchang/go-intranet-forward/log"
 	"github.com/zuiwuchang/go-intranet-forward/server"
@@ -40,7 +41,15 @@ var rootCmd = &cobra.Command{
 				Logger.Fault.Fatalln(e)
 			}
 		} else if c != "" {
-			fmt.Println("c", c)
+			e := configure.InitClient(c)
+			if e == nil {
+				// 初始化 日誌
+				log.Init(configure.GetClient().Log)
+
+				client.Run()
+			} else {
+				Logger.Fault.Fatalln(e)
+			}
 		} else {
 			fmt.Println(App)
 			fmt.Println(Version)
@@ -63,7 +72,7 @@ func init() {
 		"",
 		"server configure file,run as server.",
 	)
-	flags.StringVarP(&s,
+	flags.StringVarP(&c,
 		"client", "c",
 		"",
 		"client configure file,run as client.",

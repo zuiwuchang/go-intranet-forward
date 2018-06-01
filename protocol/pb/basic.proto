@@ -8,3 +8,25 @@ message Register{
     // 連接密碼
     string Password = 2;
 }
+
+message RegisterReply{
+    int32 Code = 1;    //0(成功) -1(未知錯誤) 1(服務不存在) 2(密碼不匹配)
+    string Error = 2;
+}
+
+message Connect {
+    // 隧道 標識
+    uint64 ID = 1;
+}
+message ConnectReply {
+    // 隧道 標識
+    uint64 ID = 1;
+    int32 Code = 2;    //0(成功) -1(未知錯誤) 
+    string Error = 3;
+}
+
+message Forward {
+    // 隧道 標識
+    uint64 ID = 1;
+    bytes Data = 2; 
+}

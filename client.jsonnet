@@ -1,13 +1,29 @@
+local MinBuffer = 1024;
+local DefaultBuffer = MinBuffer * 16;
 {
     // 配置 轉發
-    Forwards:{
-        // 遠端地址
-        Remote:":9090",
-        // 本機地址
-        Local:"127.0.0.1:22",
-        Key:"加密密鑰",
-        Password:"連接密碼",
-    },
+    Forwards:[
+        {
+            // 服務編號
+            ID:1,
+            // 遠端地址
+            Remote:"127.0.0.1:9090",
+            // 本機地址
+            Local:"127.0.0.1:22",
+            Key:"加密密鑰",
+            Password:"連接密碼 如果為空 不驗證",
+
+            // 每次 recv 緩存 最大尺寸
+            RecvBuffer:DefaultBuffer,
+            // 每次 send 數據 最大尺寸
+            SendBuffer:DefaultBuffer,
+
+            // 隧道 每次 recv 緩存 最大尺寸
+            TunnelRecvBuffer:DefaultBuffer,
+            // 隧道 每次 send 數據 最大尺寸
+            TunnelSendBuffer:DefaultBuffer,
+        },
+    ],
     // 日誌 配置
     Log:{
         // 需要打印的 日誌等級

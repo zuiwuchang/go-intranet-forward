@@ -26,7 +26,8 @@ func Run() {
 
 	// forward
 	keys := make(map[uint32]*Forward)
-	for _, node := range srv.Forward {
+	for i := 0; i < len(srv.Forward); i++ {
+		node := srv.Forward[i]
 		f, e := NewForward(node)
 		if e != nil {
 			Logger.Fault.Fatalln(e)

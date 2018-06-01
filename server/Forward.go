@@ -15,20 +15,22 @@ type Forward struct {
 	Public string
 	// 加密密鑰
 	Key string
-	// 連接密碼
+	// 連接密碼 如果為空 不驗證
 	Password string
 	Hash     string
 
-	Session  *SessionClient
+	Session  *Session
 	Listener easy.IListener
 }
 
 // NewForward .
 func NewForward(forward *configure.ServerForward) (f *Forward, e error) {
 	var hash string
-	hash, e = protocol.Hash(forward.Key, forward.Password)
-	if e != nil {
-		return
+	if forward.Password != "" {
+		hash, e = protocol.Hash(forward.Key, forward.Password)
+		if e != nil {
+			return
+		}
 	}
 	f = &Forward{
 		ID:       forward.ID,
@@ -39,26 +41,25 @@ func NewForward(forward *configure.ServerForward) (f *Forward, e error) {
 	}
 	return
 }
-
-// Display .
-func (f *Forward) Display() {
-	fmt.Printf(`***	%v	***
+func (f *Forward) String() (str string) {
+	var listener, session interface{}
+	if f.Listener != nil {
+		listener = f.Listener.Addr()
+	}
+	if f.Session != nil {
+		session = f.Session.Client.RemoteAddr()
+	}
+	str = fmt.Sprintf(`***	%v	***
 Public   = %v
 Key      = %v
 Password = %v
-Hash     = %v`,
+Hash     = %v
+Listener = %v
+Session = %v`,
 		f.ID, f.Public, f.Key, f.Password,
 		f.Hash,
+		listener,
+		session,
 	)
-	if f.Listener == nil {
-		fmt.Print("\nListener = nil")
-	} else {
-		fmt.Printf("\nListener = %v", f.Listener.Addr())
-	}
-	if f.Session == nil {
-		fmt.Print("\nSession  = nil")
-	} else {
-		fmt.Printf("\nSession = %v", f.Session.Client.RemoteAddr())
-	}
-	fmt.Println()
+	return
 }

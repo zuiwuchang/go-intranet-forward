@@ -9,6 +9,10 @@ It is generated from these files:
 
 It has these top-level messages:
 	Register
+	RegisterReply
+	Connect
+	ConnectReply
+	Forward
 */
 package pb
 
@@ -53,18 +57,127 @@ func (m *Register) GetPassword() string {
 	return ""
 }
 
+type RegisterReply struct {
+	Code  int32  `protobuf:"varint,1,opt,name=Code" json:"Code,omitempty"`
+	Error string `protobuf:"bytes,2,opt,name=Error" json:"Error,omitempty"`
+}
+
+func (m *RegisterReply) Reset()                    { *m = RegisterReply{} }
+func (m *RegisterReply) String() string            { return proto.CompactTextString(m) }
+func (*RegisterReply) ProtoMessage()               {}
+func (*RegisterReply) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+
+func (m *RegisterReply) GetCode() int32 {
+	if m != nil {
+		return m.Code
+	}
+	return 0
+}
+
+func (m *RegisterReply) GetError() string {
+	if m != nil {
+		return m.Error
+	}
+	return ""
+}
+
+type Connect struct {
+	// 隧道 標識
+	ID uint64 `protobuf:"varint,1,opt,name=ID" json:"ID,omitempty"`
+}
+
+func (m *Connect) Reset()                    { *m = Connect{} }
+func (m *Connect) String() string            { return proto.CompactTextString(m) }
+func (*Connect) ProtoMessage()               {}
+func (*Connect) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+
+func (m *Connect) GetID() uint64 {
+	if m != nil {
+		return m.ID
+	}
+	return 0
+}
+
+type ConnectReply struct {
+	// 隧道 標識
+	ID    uint64 `protobuf:"varint,1,opt,name=ID" json:"ID,omitempty"`
+	Code  int32  `protobuf:"varint,2,opt,name=Code" json:"Code,omitempty"`
+	Error string `protobuf:"bytes,3,opt,name=Error" json:"Error,omitempty"`
+}
+
+func (m *ConnectReply) Reset()                    { *m = ConnectReply{} }
+func (m *ConnectReply) String() string            { return proto.CompactTextString(m) }
+func (*ConnectReply) ProtoMessage()               {}
+func (*ConnectReply) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+
+func (m *ConnectReply) GetID() uint64 {
+	if m != nil {
+		return m.ID
+	}
+	return 0
+}
+
+func (m *ConnectReply) GetCode() int32 {
+	if m != nil {
+		return m.Code
+	}
+	return 0
+}
+
+func (m *ConnectReply) GetError() string {
+	if m != nil {
+		return m.Error
+	}
+	return ""
+}
+
+type Forward struct {
+	// 隧道 標識
+	ID   uint64 `protobuf:"varint,1,opt,name=ID" json:"ID,omitempty"`
+	Data []byte `protobuf:"bytes,2,opt,name=Data,proto3" json:"Data,omitempty"`
+}
+
+func (m *Forward) Reset()                    { *m = Forward{} }
+func (m *Forward) String() string            { return proto.CompactTextString(m) }
+func (*Forward) ProtoMessage()               {}
+func (*Forward) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+
+func (m *Forward) GetID() uint64 {
+	if m != nil {
+		return m.ID
+	}
+	return 0
+}
+
+func (m *Forward) GetData() []byte {
+	if m != nil {
+		return m.Data
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*Register)(nil), "pb.Register")
+	proto.RegisterType((*RegisterReply)(nil), "pb.RegisterReply")
+	proto.RegisterType((*Connect)(nil), "pb.Connect")
+	proto.RegisterType((*ConnectReply)(nil), "pb.ConnectReply")
+	proto.RegisterType((*Forward)(nil), "pb.Forward")
 }
 
 func init() { proto.RegisterFile("basic.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
-	// 95 bytes of a gzipped FileDescriptorProto
+	// 190 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x4e, 0x4a, 0x2c, 0xce,
 	0x4c, 0xd6, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x2a, 0x48, 0x52, 0x32, 0xe3, 0xe2, 0x08,
 	0x4a, 0x4d, 0xcf, 0x2c, 0x2e, 0x49, 0x2d, 0x12, 0xe2, 0xe3, 0x62, 0xf2, 0x74, 0x91, 0x60, 0x54,
 	0x60, 0xd4, 0xe0, 0x0d, 0x62, 0xf2, 0x74, 0x11, 0x92, 0xe2, 0xe2, 0x08, 0x48, 0x2c, 0x2e, 0x2e,
-	0xcf, 0x2f, 0x4a, 0x91, 0x60, 0x52, 0x60, 0xd4, 0xe0, 0x0c, 0x82, 0xf3, 0x93, 0xd8, 0xc0, 0x46,
-	0x18, 0x03, 0x02, 0x00, 0x00, 0xff, 0xff, 0xe5, 0x13, 0x1f, 0xfd, 0x51, 0x00, 0x00, 0x00,
+	0xcf, 0x2f, 0x4a, 0x91, 0x60, 0x52, 0x60, 0xd4, 0xe0, 0x0c, 0x82, 0xf3, 0x95, 0x2c, 0xb9, 0x78,
+	0x61, 0xfa, 0x82, 0x52, 0x0b, 0x72, 0x2a, 0x85, 0x84, 0xb8, 0x58, 0x9c, 0xf3, 0x53, 0x52, 0xc1,
+	0xda, 0x59, 0x83, 0xc0, 0x6c, 0x21, 0x11, 0x2e, 0x56, 0xd7, 0xa2, 0xa2, 0xfc, 0x22, 0xa8, 0x6e,
+	0x08, 0x47, 0x49, 0x92, 0x8b, 0xdd, 0x39, 0x3f, 0x2f, 0x2f, 0x35, 0xb9, 0x04, 0xc9, 0x46, 0x16,
+	0x90, 0x8d, 0x4a, 0x1e, 0x5c, 0x3c, 0x50, 0x29, 0x88, 0xa1, 0x68, 0xf2, 0x70, 0x4b, 0x98, 0xb0,
+	0x59, 0xc2, 0x8c, 0x6c, 0x89, 0x2e, 0x17, 0xbb, 0x5b, 0x7e, 0x51, 0x79, 0x62, 0x51, 0x0a, 0x36,
+	0x43, 0x5c, 0x12, 0x4b, 0x12, 0xc1, 0x86, 0xf0, 0x04, 0x81, 0xd9, 0x49, 0x6c, 0xe0, 0x10, 0x31,
+	0x06, 0x04, 0x00, 0x00, 0xff, 0xff, 0xef, 0x24, 0x5f, 0x6b, 0x20, 0x01, 0x00, 0x00,
 }
