@@ -227,12 +227,26 @@ func (s *Session) DoneReadMessage(cmd commandSessionRead) (_e error) {
 		var request pb.Connect
 		if e := msg.Body(&request); e != nil {
 			if log.Error != nil {
-				log.Error.Println("unknow commnad", code)
+				log.Error.Println(code)
 			}
 			return
 		}
 
 		go s.onConnect(&request)
+	case protocol.TunnelClose:
+		var request pb.Connect
+		if e := msg.Body(&request); e != nil {
+			if log.Error != nil {
+				log.Error.Println(code)
+			}
+			return
+		}
+		if tunnel, _ := s.tunnels[request.ID]; tunnel != nil {
+			tunnel.Local.Close()
+			delete(s.tunnels, request.ID)
+		}
+	case protocol.Forward:
+		fmt.Println("Forward")
 	default:
 		if log.Fault != nil {
 			log.Fault.Println("unknow commnad", code)
@@ -327,6 +341,7 @@ func (s *Session) DoneRunTunnel(cmd commandRunTunnel) (_e error) {
 			ID: id,
 		},
 	})
+	s.tunnels[id] = tunnel
 	return
 }
 
@@ -337,5 +352,19 @@ func (s *Session) DoneRemoveTunnel(cmd commandSessionRemoveTunnel) (_e error) {
 	if t0 == t1 {
 		delete(s.tunnels, t0.ID)
 	}
+	s.sendTunnelClose(t0.ID)
+	return
+}
+func (s *Session) sendTunnelClose(id uint64) (e error) {
+	var msg protocol.Message
+	msg, e = protocol.NewMessage(protocol.TunnelClose,
+		&pb.TunnelClose{
+			ID: id,
+		},
+	)
+	if e != nil {
+		return
+	}
+	e = s.sendQuque.Send(msg)
 	return
 }

@@ -10,11 +10,17 @@ import (
 	"net"
 )
 
-type commandSessionRead protocol.Message
-type commandSessionWrite protocol.Message
-
+type commandSessionRead struct {
+	Message protocol.Message
+}
+type commandSessionWrite struct {
+	Message protocol.Message
+}
 type commandSessionConnect struct {
 	Conn net.Conn
+}
+type commandSessionRemoveTunnel struct {
+	Tunnel *Tunnel
 }
 
 // Session 一個 端口映射 客戶端 session
@@ -34,12 +40,17 @@ type Session struct {
 	// 所有 內網穿透 隧道
 	tunnels  map[uint64]*Tunnel
 	tunnelID uint64
+
+	// 隧道 每次 recv 緩存 最大尺寸
+	TunnelRecvBuffer int
+	// 隧道 每次 send 數據 最大尺寸
+	TunnelSendBuffer int
 }
 
 // NewSession .
 func NewSession(id uint32, signal command.ICommanderSignal,
 	analyze *Analyze, client easy.IClient,
-	sendBuffer int,
+	sendBuffer, tunnelRecvBuffer, tunnelSendBuffer int,
 ) (session *Session, e error) {
 	var sendQuque *protocol.SendQuque
 	sendQuque, e = protocol.NewSendQuque(client, sendBuffer)
@@ -54,6 +65,9 @@ func NewSession(id uint32, signal command.ICommanderSignal,
 		sendQuque:  sendQuque,
 
 		tunnels: make(map[uint64]*Tunnel),
+
+		TunnelRecvBuffer: tunnelRecvBuffer,
+		TunnelSendBuffer: tunnelSendBuffer,
 	}
 	commander := command.New()
 	command.RegisterCommander(commander, s, "Done")
@@ -135,11 +149,7 @@ func (s *Session) Quit() {
 
 	// 關閉 隧道
 	for _, tunnel := range s.tunnels {
-		if tunnel.Status == tunnelWaitConnect {
-			tunnel.Local.Close()
-		} else {
-			Logger.Fault.Println("none")
-		}
+		tunnel.Local.Close()
 	}
 }
 
@@ -151,7 +161,7 @@ func (s *Session) RequestRead(msg protocol.Message) {
 		}
 		return
 	}
-	if e := s.signal.Done(commandSessionRead(msg)); e != nil && log.Fault != nil {
+	if e := s.signal.Done(commandSessionRead{msg}); e != nil && log.Fault != nil {
 		log.Fault.Println(e)
 	}
 }
@@ -165,7 +175,7 @@ func (s *Session) RequestWrite(msg protocol.Message) {
 		return
 	}
 
-	if e := s.signal.Done(commandSessionWrite(msg)); e != nil && log.Fault != nil {
+	if e := s.signal.Done(commandSessionWrite{msg}); e != nil && log.Fault != nil {
 		log.Fault.Println(e)
 	}
 }
@@ -186,14 +196,50 @@ func (s *Session) RequestConnect(c net.Conn) {
 }
 
 // DoneReadMessage 接收到 消息
-func (s *Session) DoneReadMessage(msg commandSessionRead) (_e error) {
-	fmt.Println("read", msg)
+func (s *Session) DoneReadMessage(cmd commandSessionRead) (_e error) {
+	msg := cmd.Message
+	code := msg.Command()
+	switch code {
+	case protocol.ConnectReply:
+		var reply pb.ConnectReply
+		if e := msg.Body(&reply); e != nil {
+			if log.Error != nil {
+				log.Error.Println(e)
+			}
+			s.Client.Close()
+			return
+		}
+		if reply.Code == 0 {
+			s.onConnectReplySuccess(&reply)
+		} else {
+			s.onConnectReplyError(&reply)
+		}
+	case protocol.TunnelClose:
+		var request pb.Connect
+		if e := msg.Body(&request); e != nil {
+			if log.Error != nil {
+				log.Error.Println(code)
+			}
+			return
+		}
+		if tunnel, _ := s.tunnels[request.ID]; tunnel != nil {
+			tunnel.Local.Close()
+			delete(s.tunnels, request.ID)
+		}
+	case protocol.Forward:
+		fmt.Println("Forward")
+	default:
+		if log.Fault != nil {
+			log.Fault.Println("unknow commnad", code)
+		}
+		s.Client.Close()
+	}
 	return
 }
 
-// DoneWriteMessage 接收到 消息
-func (s *Session) DoneWriteMessage(msg commandSessionWrite) (_e error) {
-	if e := s.sendQuque.Send(protocol.Message(msg)); e != nil && log.Fault != nil {
+// DoneWriteMessage 發送 消息
+func (s *Session) DoneWriteMessage(cmd commandSessionWrite) (_e error) {
+	if e := s.sendQuque.Send(cmd.Message); e != nil && log.Fault != nil {
 		log.Fault.Println(e)
 	}
 
@@ -201,7 +247,7 @@ func (s *Session) DoneWriteMessage(msg commandSessionWrite) (_e error) {
 }
 
 // DoneConnect .
-func (s *Session) DoneConnect(c commandSessionConnect) (_e error) {
+func (s *Session) DoneConnect(cmd commandSessionConnect) (_e error) {
 	// 獲取 唯一 隧道編號
 	s.tunnelID++
 	for {
@@ -221,7 +267,7 @@ func (s *Session) DoneConnect(c commandSessionConnect) (_e error) {
 		if log.Fault != nil {
 			log.Fault.Println(e)
 		}
-		c.Conn.Close()
+		cmd.Conn.Close()
 		return
 	}
 
@@ -230,14 +276,120 @@ func (s *Session) DoneConnect(c commandSessionConnect) (_e error) {
 		if log.Fault != nil {
 			log.Fault.Println(e)
 		}
-		c.Conn.Close()
+		cmd.Conn.Close()
 		return
 	}
 
 	// 添加 隧道
-	s.tunnels[s.tunnelID] = &Tunnel{
-		Local:  c.Conn,
-		Status: tunnelWaitConnect,
+	s.tunnels[s.tunnelID] = MallocTunnel(s.tunnelID, s, cmd.Conn)
+	return
+}
+func (s *Session) sendTunnelClose(id uint64) (e error) {
+	var msg protocol.Message
+	msg, e = protocol.NewMessage(protocol.TunnelClose,
+		&pb.TunnelClose{
+			ID: id,
+		},
+	)
+	if e != nil {
+		return
 	}
+	e = s.sendQuque.Send(msg)
+	return
+}
+func (s *Session) onConnectReplySuccess(reply *pb.ConnectReply) {
+	// 查找 隧道
+	id := reply.ID
+	if tunnel, _ := s.tunnels[id]; tunnel == nil {
+		// 隧道已經不存在 通知 客戶端 關閉 隧道
+		if e := s.sendTunnelClose(id); e != nil && log.Fault != nil {
+			log.Fault.Println(e)
+		}
+	} else {
+		if tunnel.IsInit() {
+			if log.Fault != nil {
+				log.Fault.Println("repeat create tunnel", tunnel)
+			}
+			// 通知 客戶端 關閉 隧道
+			if e := s.sendTunnelClose(id); e != nil && log.Fault != nil {
+				log.Fault.Println(e)
+			}
+			// 關閉 本地 隧道
+			tunnel.Local.Close()
+			delete(s.tunnels, id)
+		} else {
+			// 初始化隧道
+			if e := s.initTunnel(id, tunnel); e == nil {
+				// 運行 隧道
+				go tunnel.Run()
+			} else {
+				if log.Fault != nil {
+					log.Fault.Println(e)
+				}
+
+				// 關閉 本地 隧道
+				tunnel.Local.Close()
+				delete(s.tunnels, id)
+			}
+		}
+	}
+}
+func (s *Session) initTunnel(id uint64, tunnel *Tunnel) (e error) {
+	e = tunnel.Init(s.SignalRoot, s.TunnelRecvBuffer, s.TunnelSendBuffer)
+	if e != nil {
+		return
+	}
+
+	s.tunnels[id] = tunnel
+	return
+}
+func (s *Session) onConnectReplyError(reply *pb.ConnectReply) {
+	// 查找 隧道
+	id := reply.ID
+	if tunnel, _ := s.tunnels[id]; tunnel == nil {
+		if log.Error != nil {
+			log.Error.Println("not found tunnel", s, id)
+		}
+	} else {
+		// 驗證 狀態
+		if tunnel.IsInit() {
+			if log.Error != nil {
+				log.Error.Println("tunnel already init", s, id)
+			}
+		} else {
+			// 關閉 socket
+			tunnel.Local.Close()
+			delete(s.tunnels, id)
+
+			if log.Warn != nil {
+				log.Warn.Println("tunnel can't create", id, reply.Error)
+			}
+		}
+	}
+}
+
+// RequestRemoveTunnel 向 session 請求 移除 隧道
+func (s *Session) RequestRemoveTunnel(tunnel *Tunnel) {
+	if s.quit {
+		if log.Debug != nil {
+			log.Debug.Println("session already quit ignore request remove tunnel", s)
+		}
+		return
+	}
+	if e := s.signal.Done(commandSessionRemoveTunnel{
+		Tunnel: tunnel,
+	}); e != nil && log.Fault != nil {
+		log.Fault.Println(e)
+	}
+}
+
+// DoneRemoveTunnel 移除 隧道
+func (s *Session) DoneRemoveTunnel(cmd commandSessionRemoveTunnel) (_e error) {
+	t0 := cmd.Tunnel
+	t1, _ := s.tunnels[t0.ID]
+	if t0 == t1 {
+		delete(s.tunnels, t0.ID)
+	}
+	s.sendTunnelClose(t0.ID)
 	return
 }

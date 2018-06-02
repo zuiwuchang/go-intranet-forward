@@ -2,6 +2,7 @@
 syntax = "proto3";
 package pb;
 
+// 註冊成為 穿透 客戶端
 message Register{
     // 請求服務 編號
     uint32 ID = 1;
@@ -14,6 +15,7 @@ message RegisterReply{
     string Error = 2;
 }
 
+// 向 穿透 客戶端請求  建立一個 隧道
 message Connect {
     // 隧道 標識
     uint64 ID = 1;
@@ -25,8 +27,15 @@ message ConnectReply {
     string Error = 3;
 }
 
+// 轉發 隧道數據
 message Forward {
     // 隧道 標識
     uint64 ID = 1;
     bytes Data = 2; 
+}
+
+// 關閉 隧道
+message TunnelClose {
+    // 隧道 標識
+    uint64 ID = 1; 
 }

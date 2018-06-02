@@ -19,6 +19,11 @@ type Forward struct {
 	Password string
 	Hash     string
 
+	// 隧道 每次 recv 緩存 最大尺寸
+	TunnelRecvBuffer int
+	// 隧道 每次 send 數據 最大尺寸
+	TunnelSendBuffer int
+
 	Session  *Session
 	Listener easy.IListener
 }
@@ -38,6 +43,15 @@ func NewForward(forward *configure.ServerForward) (f *Forward, e error) {
 		Key:      forward.Key,
 		Password: forward.Password,
 		Hash:     hash,
+
+		TunnelRecvBuffer: forward.TunnelRecvBuffer,
+		TunnelSendBuffer: forward.TunnelSendBuffer,
+	}
+	if f.TunnelRecvBuffer < 1024 {
+		f.TunnelRecvBuffer = 1024 * 16
+	}
+	if f.TunnelSendBuffer < 1024 {
+		f.TunnelSendBuffer = 1024 * 16
 	}
 	return
 }

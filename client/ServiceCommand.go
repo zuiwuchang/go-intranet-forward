@@ -181,6 +181,9 @@ func (s *Service) DoneConnectReplay(command CommandConnectReplay) (_e error) {
 func (s *Service) DoneTunnelRoute(command CommandTunnelRoute) (_e error) {
 	session := command.Session
 	if session.quit {
+		if log.Debug != nil {
+			log.Debug.Println("session already quit ignore request write", session)
+		}
 		return
 	}
 	tunnel := command.Tunnel

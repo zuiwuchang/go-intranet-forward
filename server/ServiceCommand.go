@@ -130,6 +130,19 @@ func (s *Service) DoneService(command CommandService) (e error) {
 	return
 }
 
+// CommandTunnelRoute 為 Tunnel 路由 read 到的 消息
+type CommandTunnelRoute struct {
+	Session *Session
+	Tunnel  *Tunnel
+	Message []byte
+}
+
+// CommandTunnelDestory Tunnel 已關閉 銷毀她
+type CommandTunnelDestory struct {
+	Session *Session
+	Tunnel  *Tunnel
+}
+
 // DoneRegister .
 func (s *Service) DoneRegister(command CommandRegister) (_e error) {
 	var reply pb.RegisterReply
@@ -174,6 +187,7 @@ func (s *Service) DoneRegister(command CommandRegister) (_e error) {
 	var session *Session
 	session, e = NewSession(id, s.signal,
 		command.Analyze, command.Client, configure.GetServer().Server.SendBuffer,
+		forward.TunnelRecvBuffer, forward.TunnelSendBuffer,
 	)
 	if e != nil {
 		if log.Fault != nil {
@@ -242,5 +256,37 @@ func (s *Service) DoneCommandConnect(command CommandConnect) (_e error) {
 	}
 
 	session.RequestConnect(c)
+	return
+}
+
+// DoneTunnelRoute .
+func (s *Service) DoneTunnelRoute(command CommandTunnelRoute) (_e error) {
+	session := command.Session
+	if session.quit {
+		if log.Debug != nil {
+			log.Debug.Println("session already quit ignore request write", session)
+		}
+		return
+	}
+	tunnel := command.Tunnel
+	msg, e := protocol.NewMessage(protocol.Forward, &pb.Forward{
+		ID:   tunnel.ID,
+		Data: command.Message,
+	})
+	if e != nil {
+		tunnel.Local.Close()
+		return
+	}
+	session.RequestWrite(msg)
+	return
+}
+
+// DoneTunnelDestory .
+func (s *Service) DoneTunnelDestory(command CommandTunnelDestory) (_e error) {
+	// 通知 退出 主控 goroutine
+	command.Tunnel.Quit()
+
+	// 通知 session 移除 隧道
+	command.Session.RequestRemoveTunnel(command.Tunnel)
 	return
 }

@@ -26,6 +26,11 @@ local DefaultBuffer = MinBuffer * 16;
             Public:":10000",
             Key:"加密密鑰",
             Password:"連接密碼 如果為空 不驗證",
+
+            // 每次 recv 緩存 最大尺寸
+            TunnelRecvBuffer:DefaultBuffer,
+            // 每次 send 數據 最大尺寸
+            TunnelSendBuffer:DefaultBuffer,
         },
     ],
     // 日誌 配置

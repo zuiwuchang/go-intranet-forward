@@ -30,6 +30,9 @@ const (
 	// Forward 轉發 數據
 	Forward
 
+	// TunnelClose 關閉隧道
+	TunnelClose
+
 	// CommandEnd .
 	CommandEnd
 )
