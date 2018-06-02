@@ -8,8 +8,8 @@ import (
 
 // Client 客戶端 配置
 type Client struct {
-	Forwards []*ClientForward
-	Log      Log
+	Forward []*ClientForward
+	Log     Log
 }
 
 var _Client Client

@@ -18,8 +18,8 @@ func Run() {
 	srv := configure.GetClient()
 	// forward
 	keysForward := make(map[uint32]*Forward)
-	for i := 0; i < len(srv.Forwards); i++ {
-		node := srv.Forwards[i]
+	for i := 0; i < len(srv.Forward); i++ {
+		node := srv.Forward[i]
 		f, e := NewForward(node)
 		if e != nil {
 			Logger.Fault.Fatalln(e)
