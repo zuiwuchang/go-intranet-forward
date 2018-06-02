@@ -69,7 +69,10 @@ func NewForward(forward *configure.ClientForward) (f *Forward, e error) {
 
 // Display .
 func (f *Forward) String() (str string) {
-	session := f.Session.Client.LocalAddr()
+	var session interface{}
+	if f.Session != nil {
+		session = f.Session.Client.LocalAddr()
+	}
 	str = fmt.Sprintf(`***	%v	***
 Remote   = %v
 Local    = %v
