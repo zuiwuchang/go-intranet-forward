@@ -1,5 +1,9 @@
 package configure
 
+import (
+	"time"
+)
+
 // ClientForward .
 type ClientForward struct {
 	// 服務編號
@@ -21,4 +25,7 @@ type ClientForward struct {
 	TunnelRecvBuffer int
 	// 隧道 每次 send 數據 最大尺寸
 	TunnelSendBuffer int
+
+	// 重建 最長等待時間
+	MaxReconstruction time.Duration
 }

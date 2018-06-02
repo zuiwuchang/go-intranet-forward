@@ -1,3 +1,5 @@
+local Second = 1;
+local Minute = Second * 60;
 local MinBuffer = 1024;
 local DefaultBuffer = MinBuffer * 16;
 {
@@ -22,6 +24,9 @@ local DefaultBuffer = MinBuffer * 16;
             TunnelRecvBuffer:DefaultBuffer,
             // 隧道 每次 send 數據 最大尺寸
             TunnelSendBuffer:DefaultBuffer,
+
+            // 重建 最長等待時間
+	        MaxReconstruction:Minute,
         },
     ],
     // 日誌 配置

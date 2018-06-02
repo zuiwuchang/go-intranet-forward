@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/zuiwuchang/go-intranet-forward/configure"
 	"github.com/zuiwuchang/go-intranet-forward/protocol"
+	"time"
 )
 
 // Forward 轉發 服務信息
@@ -30,10 +31,20 @@ type Forward struct {
 	TunnelSendBuffer int
 
 	Session *Session
+
+	waitInit     bool
+	waitSleep    time.Duration
+	maxWaitSleep time.Duration
 }
 
 // NewForward .
 func NewForward(forward *configure.ClientForward) (f *Forward, e error) {
+	max := forward.MaxReconstruction
+	if max < 1 {
+		max = time.Minute
+	} else {
+		max *= time.Second
+	}
 	var hash string
 	hash, e = protocol.Hash(forward.Key, forward.Password)
 	if e != nil {
@@ -50,6 +61,9 @@ func NewForward(forward *configure.ClientForward) (f *Forward, e error) {
 		SendBuffer:       forward.SendBuffer,
 		TunnelRecvBuffer: forward.TunnelRecvBuffer,
 		TunnelSendBuffer: forward.TunnelSendBuffer,
+
+		waitSleep:    time.Second,
+		maxWaitSleep: max,
 	}
 
 	if f.RecvBuffer < 1024 {

@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"time"
 )
 
 func (s *Service) runCommand() {
@@ -106,6 +107,17 @@ type CommandTunnelWrite struct {
 	Data   []byte
 }
 
+// CommandForwardInitError 重建 Forward 失敗
+type CommandForwardInitError struct {
+	Forward *Forward
+}
+
+// CommandForwardInitSuccess 重建 Forward 成功
+type CommandForwardInitSuccess struct {
+	Forward *Forward
+	Session *Session
+}
+
 // DoneClose .
 func (s *Service) DoneClose(cmd CommandClose) (e error) {
 	os.Exit(0)
@@ -155,10 +167,14 @@ func (s *Service) DoneSessionDestory(cmd CommandSessionDestory) (_e error) {
 	// 設置 服務 空閒
 	if forward, _ := s.keysForward[session.ID]; forward != nil &&
 		forward.Session == session {
-		if log.Trace != nil {
-			log.Trace.Println("destory forward\n", forward)
+		if log.Info != nil {
+			log.Info.Printf("destory forward,after %v reconstruction.\n", forward.waitSleep)
 		}
 		forward.Session = nil
+
+		// 重連 服務
+		forward.waitInit = true
+		go s.initForward(forward)
 	}
 	return
 }
@@ -218,5 +234,93 @@ func (s *Service) DoneTunnelDestory(cmd CommandTunnelDestory) (_e error) {
 // DoneTunnelWrite .
 func (s *Service) DoneTunnelWrite(cmd CommandTunnelWrite) (_e error) {
 	cmd.Tunnel.RequestWrite(cmd.Data)
+	return
+}
+func (s *Service) initForward(forward *Forward) {
+	time.Sleep(forward.waitSleep)
+	if log.Info != nil {
+		log.Info.Println("init forward")
+	}
+
+	client, e := NewClient(forward)
+	if e != nil {
+		if log.Fault != nil {
+			log.Fault.Println(e)
+		}
+		// 通知 主控 創建失敗
+		s.signal.Done(CommandForwardInitError{
+			Forward: forward,
+		})
+		return
+	}
+
+	var session *Session
+	session, e = NewSession(forward.ID,
+		client,
+		forward.SendBuffer, forward.Local,
+		forward.TunnelRecvBuffer, forward.TunnelSendBuffer,
+	)
+	if e != nil {
+		if log.Fault != nil {
+			log.Fault.Println(e)
+		}
+		// 通知 主控 創建失敗
+		return
+	}
+
+	// 通知 主控 建立成功
+	s.signal.Done(CommandForwardInitSuccess{
+		Forward: forward,
+		Session: session,
+	})
+}
+
+// DoneForwardInitError .
+func (s *Service) DoneForwardInitError(cmd CommandForwardInitError) (_e error) {
+	forward := cmd.Forward
+	// 驗證 是否 過期
+	if f, ok := s.keysForward[forward.ID]; !ok || f != forward {
+		if log.Debug != nil {
+			log.Debug.Println("forward expired\n", forward)
+		}
+		return
+	}
+
+	// 繼續 重建
+	wait := forward.waitSleep * 2
+	if wait <= forward.maxWaitSleep {
+		forward.waitSleep = wait
+	}
+	if log.Info != nil {
+		log.Info.Printf("forward after %v reconstruction.\n", forward.waitSleep)
+	}
+	go s.initForward(forward)
+	return
+}
+
+// DoneForwardInitSuccess .
+func (s *Service) DoneForwardInitSuccess(cmd CommandForwardInitSuccess) (_e error) {
+	forward := cmd.Forward
+	session := cmd.Session
+	// 驗證 是否 過期
+	if f, ok := s.keysForward[forward.ID]; !ok || f != forward {
+		if log.Debug != nil {
+			log.Debug.Println("forward expired\n", forward)
+		}
+		session.Client.Close()
+		return
+	}
+
+	// 設置 成功數據
+	s.keysForward[forward.ID] = forward
+	forward.waitSleep = time.Second
+	forward.waitInit = false
+	forward.Session = session
+	if log.Info != nil {
+		log.Info.Println("forward reconstruction success\n", forward)
+	}
+
+	// 運行 session
+	go session.Run(s.signal)
 	return
 }
