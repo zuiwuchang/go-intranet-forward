@@ -19,7 +19,7 @@ type Service struct {
 }
 
 // Run 運行 服務
-func (s *Service) Run() {
+func (s *Service) Run(t bool) {
 	go s.runListen(s.listen)
 	for _, forward := range s.keysForward {
 		go s.runListenForward(forward.ID, forward.Listener)
@@ -28,7 +28,9 @@ func (s *Service) Run() {
 	command.RegisterCommander(commander, s, "Done")
 	signal := command.NewSignal(make(chan interface{}, 10), commander)
 	s.signal = signal
-	go s.runCommand()
+	if t {
+		go s.runCommand()
+	}
 
 	var e error
 	for {

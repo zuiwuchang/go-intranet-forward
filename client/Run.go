@@ -14,7 +14,7 @@ import (
 var Logger = log.Logger
 
 // Run .
-func Run() {
+func Run(t bool) {
 	srv := configure.GetClient()
 	// forward
 	keysForward := make(map[uint32]*Forward)
@@ -46,7 +46,7 @@ func Run() {
 	service := Service{
 		keysForward: keysForward,
 	}
-	service.Run()
+	service.Run(t)
 }
 
 // NewClient .

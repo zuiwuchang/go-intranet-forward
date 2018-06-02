@@ -11,7 +11,7 @@ import (
 var Logger = log.Logger
 
 // Run .
-func Run() {
+func Run(t bool) {
 	srv := configure.GetServer()
 
 	// server
@@ -51,5 +51,5 @@ func Run() {
 		listen:      easy.NewListener(l),
 		keysForward: keys,
 	}
-	service.Run()
+	service.Run(t)
 }

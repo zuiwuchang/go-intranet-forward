@@ -24,6 +24,7 @@ var Logger = log.Logger
 var v bool
 var s string
 var c string
+var t bool
 var rootCmd = &cobra.Command{
 	Use:   App,
 	Short: "golang intranet forward tools",
@@ -36,7 +37,7 @@ var rootCmd = &cobra.Command{
 				// 初始化 日誌
 				log.Init(configure.GetServer().Log)
 
-				server.Run()
+				server.Run(t)
 			} else {
 				Logger.Fault.Fatalln(e)
 			}
@@ -46,7 +47,7 @@ var rootCmd = &cobra.Command{
 				// 初始化 日誌
 				log.Init(configure.GetClient().Log)
 
-				client.Run()
+				client.Run(t)
 			} else {
 				Logger.Fault.Fatalln(e)
 			}
@@ -66,6 +67,12 @@ func init() {
 		"v",
 		false,
 		"show version",
+	)
+	flags.BoolVarP(&t,
+		"test",
+		"t",
+		false,
+		"test control",
 	)
 	flags.StringVarP(&s,
 		"server", "s",

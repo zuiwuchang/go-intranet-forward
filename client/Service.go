@@ -11,13 +11,14 @@ type Service struct {
 }
 
 // Run 運行 服務
-func (s *Service) Run() {
+func (s *Service) Run(t bool) {
 	commander := command.New()
 	command.RegisterCommander(commander, s, "Done")
 	signal := command.NewSignal(make(chan interface{}, 10), commander)
 	s.signal = signal
-	go s.runCommand()
-
+	if t {
+		go s.runCommand()
+	}
 	for _, forward := range s.keysForward {
 		go forward.Session.Run(signal)
 	}
