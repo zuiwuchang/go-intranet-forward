@@ -97,36 +97,36 @@ type CommandConnect struct {
 }
 
 // DoneClose .
-func (s *Service) DoneClose(command CommandClose) (e error) {
+func (s *Service) DoneClose(cmd CommandClose) (e error) {
 	os.Exit(0)
 	return
 }
 
 // DoneInfo .
-func (s *Service) DoneInfo(command CommandInfo) (e error) {
+func (s *Service) DoneInfo(cmd CommandInfo) (e error) {
 	fmt.Println(runtime.GOOS, runtime.GOARCH)
 	fmt.Println("NumCPU", runtime.NumCPU())
 	fmt.Println("NumCgoCall", runtime.NumCgoCall())
 	fmt.Println("NumGoroutine", runtime.NumGoroutine())
 
-	command.signal <- nil
+	cmd.signal <- nil
 	return
 }
 
 // DoneHelp .
-func (s *Service) DoneHelp(command CommandHelp) (e error) {
+func (s *Service) DoneHelp(cmd CommandHelp) (e error) {
 	fmt.Println("e info service h")
 
-	command.signal <- nil
+	cmd.signal <- nil
 	return
 }
 
 // DoneService .
-func (s *Service) DoneService(command CommandService) (e error) {
+func (s *Service) DoneService(cmd CommandService) (e error) {
 	for _, forward := range s.keysForward {
 		fmt.Println(forward)
 	}
-	command.signal <- nil
+	cmd.signal <- nil
 	return
 }
 
@@ -143,11 +143,17 @@ type CommandTunnelDestory struct {
 	Tunnel  *Tunnel
 }
 
+// CommandTunnelWrite 路由 write 到 Tunnel 的數據
+type CommandTunnelWrite struct {
+	Tunnel *Tunnel
+	Data   []byte
+}
+
 // DoneRegister .
-func (s *Service) DoneRegister(command CommandRegister) (_e error) {
+func (s *Service) DoneRegister(cmd CommandRegister) (_e error) {
 	var reply pb.RegisterReply
 	// 查找 服務
-	id := command.Request.ID
+	id := cmd.Request.ID
 	forward := s.keysForward[id]
 	if forward == nil {
 		reply.Code = 1
@@ -155,18 +161,18 @@ func (s *Service) DoneRegister(command CommandRegister) (_e error) {
 		if log.Warn != nil {
 			log.Warn.Println(reply.Error)
 		}
-		go s.replyError(command.Client, &reply)
+		go s.replyError(cmd.Client, &reply)
 		return
 	}
 
 	// 驗證 密碼
-	if forward.Hash != "" && forward.Hash != command.Request.Password {
+	if forward.Hash != "" && forward.Hash != cmd.Request.Password {
 		reply.Code = 2
 		reply.Error = "forward password not match"
 		if log.Warn != nil {
 			log.Warn.Println(reply.Error)
 		}
-		go s.replyError(command.Client, &reply)
+		go s.replyError(cmd.Client, &reply)
 		return
 	}
 	// 創建 成功 消息
@@ -175,7 +181,7 @@ func (s *Service) DoneRegister(command CommandRegister) (_e error) {
 		if log.Fault != nil {
 			log.Fault.Println(e)
 		}
-		command.Client.Close()
+		cmd.Client.Close()
 		return
 	}
 
@@ -186,14 +192,14 @@ func (s *Service) DoneRegister(command CommandRegister) (_e error) {
 	// 創建 session
 	var session *Session
 	session, e = NewSession(id, s.signal,
-		command.Analyze, command.Client, configure.GetServer().Server.SendBuffer,
+		cmd.Analyze, cmd.Client, configure.GetServer().Server.SendBuffer,
 		forward.TunnelRecvBuffer, forward.TunnelSendBuffer,
 	)
 	if e != nil {
 		if log.Fault != nil {
 			log.Fault.Println(e)
 		}
-		command.Client.Close()
+		cmd.Client.Close()
 		return
 	}
 	forward.Session = session
@@ -210,15 +216,15 @@ func (s *Service) DoneRegister(command CommandRegister) (_e error) {
 }
 
 // DoneSessionRoute .
-func (s *Service) DoneSessionRoute(command CommandSessionRoute) (_e error) {
-	command.Session.RequestRead(command.Message)
+func (s *Service) DoneSessionRoute(cmd CommandSessionRoute) (_e error) {
+	cmd.Session.RequestRead(cmd.Message)
 	return
 }
 
 // DoneSessionDestory .
-func (s *Service) DoneSessionDestory(command CommandSessionDestory) (_e error) {
+func (s *Service) DoneSessionDestory(cmd CommandSessionDestory) (_e error) {
 	// 通知 退出 主控 goroutine
-	session := command.Session
+	session := cmd.Session
 	session.Quit()
 
 	// 設置 服務 空閒
@@ -233,9 +239,9 @@ func (s *Service) DoneSessionDestory(command CommandSessionDestory) (_e error) {
 }
 
 // DoneCommandConnect .
-func (s *Service) DoneCommandConnect(command CommandConnect) (_e error) {
-	id := command.ID
-	c := command.Conn
+func (s *Service) DoneCommandConnect(cmd CommandConnect) (_e error) {
+	id := cmd.ID
+	c := cmd.Conn
 	// 查找 服務
 	forward, _ := s.keysForward[id]
 	if forward == nil {
@@ -260,18 +266,18 @@ func (s *Service) DoneCommandConnect(command CommandConnect) (_e error) {
 }
 
 // DoneTunnelRoute .
-func (s *Service) DoneTunnelRoute(command CommandTunnelRoute) (_e error) {
-	session := command.Session
+func (s *Service) DoneTunnelRoute(cmd CommandTunnelRoute) (_e error) {
+	session := cmd.Session
 	if session.quit {
 		if log.Debug != nil {
 			log.Debug.Println("session already quit ignore request write", session)
 		}
 		return
 	}
-	tunnel := command.Tunnel
+	tunnel := cmd.Tunnel
 	msg, e := protocol.NewMessage(protocol.Forward, &pb.Forward{
 		ID:   tunnel.ID,
-		Data: command.Message,
+		Data: cmd.Message,
 	})
 	if e != nil {
 		tunnel.Local.Close()
@@ -282,11 +288,17 @@ func (s *Service) DoneTunnelRoute(command CommandTunnelRoute) (_e error) {
 }
 
 // DoneTunnelDestory .
-func (s *Service) DoneTunnelDestory(command CommandTunnelDestory) (_e error) {
+func (s *Service) DoneTunnelDestory(cmd CommandTunnelDestory) (_e error) {
 	// 通知 退出 主控 goroutine
-	command.Tunnel.Quit()
+	cmd.Tunnel.Quit()
 
 	// 通知 session 移除 隧道
-	command.Session.RequestRemoveTunnel(command.Tunnel)
+	cmd.Session.RequestRemoveTunnel(cmd.Tunnel)
+	return
+}
+
+// DoneTunnelWrite .
+func (s *Service) DoneTunnelWrite(cmd CommandTunnelWrite) (_e error) {
+	cmd.Tunnel.RequestWrite(cmd.Data)
 	return
 }

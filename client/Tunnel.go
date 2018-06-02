@@ -7,6 +7,10 @@ import (
 	"net"
 )
 
+type commandTunnelWrite struct {
+	Data []byte
+}
+
 // Tunnel 一個 內網穿透 隧道
 type Tunnel struct {
 	ID uint64
@@ -113,4 +117,25 @@ func (t *Tunnel) Quit() {
 	// 通知 主控 goroutine 退出
 	t.signal.Close()
 	t.quit = true
+}
+
+// RequestWrite .
+func (t *Tunnel) RequestWrite(b []byte) {
+	if t.quit {
+		if log.Debug != nil {
+			log.Debug.Println("tunnel already quit ignore request write", t)
+		}
+		return
+	}
+	if e := t.signal.Done(commandTunnelWrite{b}); e != nil && log.Fault != nil {
+		log.Fault.Println(e)
+	}
+}
+
+// DoneWrite .
+func (t *Tunnel) DoneWrite(cmd commandTunnelWrite) (_e error) {
+	if e := t.sendQuque.Send(cmd.Data); e != nil && log.Fault != nil {
+		log.Fault.Println(e)
+	}
+	return
 }

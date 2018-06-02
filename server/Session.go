@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"github.com/zuiwuchang/go-intranet-forward/log"
 	"github.com/zuiwuchang/go-intranet-forward/protocol"
 	"github.com/zuiwuchang/go-intranet-forward/protocol/go/pb"
@@ -218,8 +217,9 @@ func (s *Session) DoneReadMessage(cmd commandSessionRead) (_e error) {
 		var request pb.Connect
 		if e := msg.Body(&request); e != nil {
 			if log.Error != nil {
-				log.Error.Println(code)
+				log.Error.Println(e)
 			}
+			s.Client.Close()
 			return
 		}
 		if tunnel, _ := s.tunnels[request.ID]; tunnel != nil {
@@ -227,7 +227,15 @@ func (s *Session) DoneReadMessage(cmd commandSessionRead) (_e error) {
 			delete(s.tunnels, request.ID)
 		}
 	case protocol.Forward:
-		fmt.Println("Forward")
+		var request pb.Forward
+		if e := msg.Body(&request); e != nil {
+			if log.Error != nil {
+				log.Error.Println(e)
+			}
+			s.Client.Close()
+			return
+		}
+		s.onForward(&request)
 	default:
 		if log.Fault != nil {
 			log.Fault.Println("unknow commnad", code)
@@ -392,4 +400,22 @@ func (s *Session) DoneRemoveTunnel(cmd commandSessionRemoveTunnel) (_e error) {
 	}
 	s.sendTunnelClose(t0.ID)
 	return
+}
+func (s *Session) onForward(request *pb.Forward) {
+	// 查找 通道
+	id := request.ID
+	tunnel, _ := s.tunnels[id]
+	if tunnel == nil {
+		if log.Warn != nil {
+			log.Warn.Println("tunnel not found", id)
+		}
+	} else {
+		if len(request.Data) > 0 {
+			// 通知 主控 轉發 write 數據
+			s.SignalRoot.Done(CommandTunnelWrite{
+				Tunnel: tunnel,
+				Data:   request.Data,
+			})
+		}
+	}
 }
