@@ -27,6 +27,7 @@ func Run(t bool) {
 		keysForward[node.ID] = f
 	}
 
+	/*
 	for _, forward := range keysForward {
 		client, e := NewClient(forward)
 		if e != nil {
@@ -41,6 +42,7 @@ func Run(t bool) {
 			Logger.Fault.Fatalln(e)
 		}
 	}
+	*/
 
 	// 創建服務
 	service := Service{

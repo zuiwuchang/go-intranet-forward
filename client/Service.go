@@ -20,7 +20,7 @@ func (s *Service) Run(t bool) {
 		go s.runCommand()
 	}
 	for _, forward := range s.keysForward {
-		go forward.Session.Run(signal)
+		go s.initForward(forward)
 	}
 
 	var e error

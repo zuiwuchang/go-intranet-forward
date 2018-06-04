@@ -9,7 +9,7 @@ local DefaultBuffer = MinBuffer * 16;
             // 服務編號
             ID:1,
             // 遠端地址
-            Remote:"192.168.16.3:9090",
+            Remote:"127.0.0.1:9090",
             // 本機地址
             Local:"127.0.0.1:22",
             Key:"加密密鑰",

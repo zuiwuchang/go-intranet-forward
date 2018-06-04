@@ -239,7 +239,7 @@ func (s *Service) DoneTunnelWrite(cmd CommandTunnelWrite) (_e error) {
 func (s *Service) initForward(forward *Forward) {
 	time.Sleep(forward.waitSleep)
 	if log.Info != nil {
-		log.Info.Println("init forward")
+		log.Info.Println("init forward, id =", forward.ID)
 	}
 
 	client, e := NewClient(forward)
