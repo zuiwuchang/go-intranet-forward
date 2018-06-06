@@ -1,3 +1,8 @@
+# Discard
+因為 microsoft的原因 此項目 已經被轉移到 [gitlab.com/king011/go-intranet-forward](https://gitlab.com/king011/go-intranet-forward)
+
+github上的 版本將不在進行 任何維護
+
 # go-intranet-forward
 使用 golang 實現的 內網穿透端口映射工具
 
